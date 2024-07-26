@@ -1,11 +1,15 @@
 import os
 import requests
 import csv
+import logging
 from dotenv import load_dotenv
 from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def get_github_files(org, filetype, token):
     repos_url = f"https://api.github.com/orgs/{org}/repos"
@@ -17,12 +21,12 @@ def get_github_files(org, filetype, token):
     while True:
         response = requests.get(repos_url, headers=headers, params={'page': page, 'per_page': 100})
         if response.status_code != 200:
-            print(f"Error fetching repositories: {response.status_code}")
-            print(response.json())
+            logging.error(f"Error fetching repositories: {response.status_code}")
+            logging.error(response.json())
             return []
         
         page_repos = response.json()
-        print(f"Page {page} response: {page_repos}")  # Added logging
+        logging.info(f"Fetched page {page} of repositories")
 
         if not page_repos:
             break
@@ -38,15 +42,15 @@ def get_github_files(org, filetype, token):
         
         contents_response = requests.get(contents_url, headers=headers)
         if contents_response.status_code != 200:
-            print(f"Error fetching contents for {repo_name}: {contents_response.status_code}")
+            logging.error(f"Error fetching contents for {repo_name}: {contents_response.status_code}")
             continue
         
         contents = contents_response.json()
-        print(f"Contents of {repo_name}: {contents}")  # Added logging
 
         for content in contents:
             if content['type'] == 'file' and content['name'].endswith(filetype):
                 file_info = {
+                    'org': org,
                     'repo': repo_name,
                     'file': content['name'],
                     'file_url': content['html_url'],
@@ -62,11 +66,10 @@ def get_last_committer(org, repo, filepath, token):
     
     commits_response = requests.get(commits_url, headers=headers)
     if commits_response.status_code != 200:
-        print(f"Error fetching commits for {repo}/{filepath}: {commits_response.status_code}")
+        logging.error(f"Error fetching commits for {repo}/{filepath}: {commits_response.status_code}")
         return None
     
     commits = commits_response.json()
-    print(f"Commits for {repo}/{filepath}: {commits}")  # Added logging
     
     if commits:
         return commits[0]['commit']['author']['name']
@@ -82,13 +85,13 @@ files_list = get_github_files(organization, file_type, github_token)
 
 # Get current timestamp for the filename
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-filename = f"github_files_{timestamp}.csv"
+filename = f"github_files_{organization}_{timestamp}.csv"
 
 # Write results to a CSV file
 with open(filename, mode='w', newline='', encoding='utf-8') as file:
     writer = csv.writer(file, quoting=csv.QUOTE_ALL)
-    writer.writerow(['Repo', 'File', 'URL', 'Last Committer'])
+    writer.writerow(['Organization', 'Repo', 'File', 'URL', 'Last Committer'])
     for file in files_list:
-        writer.writerow([file['repo'], file['file'], file['file_url'], file['last_committer']])
+        writer.writerow([file['org'], file['repo'], file['file'], file['file_url'], file['last_committer']])
 
-print(f"Results saved to {filename}")
+logging.info(f"Results saved to {filename}")
