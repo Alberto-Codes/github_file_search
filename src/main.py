@@ -12,8 +12,8 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def get_github_files(org, filetypes, token):
-    repos_url = f"https://api.github.com/orgs/{org}/repos"
+def get_github_files(base_url, org, filetypes, token):
+    repos_url = f"{base_url}/orgs/{org}/repos"
     headers = {'Authorization': f'token {token}'}
     
     repos = []
@@ -39,7 +39,7 @@ def get_github_files(org, filetypes, token):
     
     for repo in repos:
         repo_name = repo['name']
-        contents_url = f"https://api.github.com/repos/{org}/{repo_name}/contents"
+        contents_url = f"{base_url}/repos/{org}/{repo_name}/contents"
         
         contents_response = requests.get(contents_url, headers=headers)
         if contents_response.status_code != 200:
@@ -50,7 +50,7 @@ def get_github_files(org, filetypes, token):
 
         for content in contents:
             if content['type'] == 'file' and any(content['name'].endswith(filetype) for filetype in filetypes):
-                committer_info = get_last_committer(org, repo_name, content['path'], token)
+                committer_info = get_last_committer(base_url, org, repo_name, content['path'], token)
                 file_info = {
                     'org': org,
                     'repo': repo_name,
@@ -63,8 +63,8 @@ def get_github_files(org, filetypes, token):
     
     return results
 
-def get_last_committer(org, repo, filepath, token):
-    commits_url = f"https://api.github.com/repos/{org}/{repo}/commits?path={filepath}"
+def get_last_committer(base_url, org, repo, filepath, token):
+    commits_url = f"{base_url}/repos/{org}/{repo}/commits?path={filepath}"
     headers = {'Authorization': f'token {token}'}
     
     commits_response = requests.get(commits_url, headers=headers)
@@ -87,12 +87,14 @@ def main():
     args = parser.parse_args()
 
     github_token = os.getenv("GITHUB_TOKEN")
+    github_base_url = os.getenv("GITHUB_BASE_URL", "https://api.github.com")  # Default to public GitHub API if not set
+
     if not github_token:
         logging.error("GitHub token not found in environment variables")
         return
 
     # Get list of files
-    files_list = get_github_files(args.organization, args.filetypes, github_token)
+    files_list = get_github_files(github_base_url, args.organization, args.filetypes, github_token)
 
     # Get current timestamp for the filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
