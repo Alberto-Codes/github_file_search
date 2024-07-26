@@ -1,6 +1,8 @@
 import os
 import requests
+import csv
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -78,5 +80,15 @@ github_token = os.getenv("GITHUB_TOKEN")
 # Get list of files
 files_list = get_github_files(organization, file_type, github_token)
 
-for file in files_list:
-    print(f"Repo: {file['repo']}, File: {file['file']}, URL: {file['file_url']}, Last Committer: {file['last_committer']}")
+# Get current timestamp for the filename
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+filename = f"github_files_{timestamp}.csv"
+
+# Write results to a CSV file
+with open(filename, mode='w', newline='', encoding='utf-8') as file:
+    writer = csv.writer(file, quoting=csv.QUOTE_ALL)
+    writer.writerow(['Repo', 'File', 'URL', 'Last Committer'])
+    for file in files_list:
+        writer.writerow([file['repo'], file['file'], file['file_url'], file['last_committer']])
+
+print(f"Results saved to {filename}")
